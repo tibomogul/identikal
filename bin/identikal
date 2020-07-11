@@ -10,6 +10,10 @@ compare_method = :all
 verbose = false
 OptionParser.new do |parser|
   parser.banner = 'Usage: identikal [options] PDF_1 PDF_2'
+  parser.on('-d', '--diff', 'Output diff if text difference') do
+    compare_method = :diff
+  end
+
   parser.on('-t', '--text', 'Only compare text') do
     compare_method = :text
   end
@@ -34,7 +38,7 @@ rescue ArgumentError => e
   exit(1)
 end
 
-if verbose
+if verbose && [true, false].include?(result)
   puts 'Files are identical' if result
   puts 'Files are different' unless result
 else

@@ -1,18 +1,22 @@
 # frozen_string_literal: false
 
 require 'identikal/error'
+require 'differ'
 
 module Identikal
   autoload(:HexaPDF, 'hexapdf')
   autoload(:PDF, 'pdf-reader')
 
   class Compare
-    COMPARE_METHODS = %i[text all].freeze
+    COMPARE_METHODS = %i[diff text all].freeze
 
     class << self
       def files_same?(file_a, file_b, compare_method: :all)
         validate_arguments(file_a, file_b, compare_method)
-        if compare_method == :text
+        case compare_method
+        when :diff
+          diff(file_a, file_b)
+        when :text
           text_only(file_a, file_b)
         else
           with_formatting(file_a, file_b)
@@ -20,6 +24,27 @@ module Identikal
       end
 
       private
+      def diff(file_a, file_b)
+        if !with_formatting(file_a, file_b)
+          reader_a = PDF::Reader.new(file_a)
+          reader_b = PDF::Reader.new(file_b)
+          diffs = []
+          diffs << "#{file_a} <> #{file_b} are different"
+          [reader_a.page_count,reader_b.page_count].min.times do |i|
+            text_a = reader_a.pages[i].text # .gsub!(/\n+|\s+/, '')
+            text_b = reader_b.pages[i].text # .gsub!(/\n+|\s+/, '')
+            res = Differ.diff_by_line(text_a, text_b)
+            res.to_s.match(/(\{\".+\"\})/) do |m|
+              diffs << m.captures.join("\n")
+            end
+            # diffs << Differ.diff_by_word(text_a, text_b)
+          end
+          diffs << "Different no. of pages #{reader_a.page_count} <> #{reader_b.page_count}" if reader_a.page_count != reader_b.page_count
+          diffs.join("\n")
+        else
+          true
+        end
+      end
 
       def text_only(file_a, file_b)
         reader_a = PDF::Reader.new(file_a)
